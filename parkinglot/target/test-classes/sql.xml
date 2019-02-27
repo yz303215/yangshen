@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap
+    PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN"
+    "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="fund">
+    
+    <resultMap class="java.util.LinkedHashMap" id="queryFundProductUpPercentResult">
+	    <result property="id" column="id" />
+		<result property="PrdNav" column="PRDNAV" />
+		<result property="NavDate" column="NAVDATE" />
+		<result property="UpPercent" column="UpPercent" />
+		<result property="PrdCode" column="PRDCODE" />
+		<result property="PrdType" column="PRDTYPE" />
+		<result property="TACode" column="TACODE" />
+		<result property="PrdName" column="PRDNAME" />
+		<result property="NAV" column="NAV" />
+		<result property="PfirstAmt" column="PFIRSTAMT" />
+		<result property="PrdAttr" column="PRDATTR" />
+		<result property="RiskLevel" column="RISKLEVEL" />
+		<result property="RiskName" column="RISKNAME" />
+		<result property="Status" column="STATUS" />
+		<result property="ControlFlag" column="CONTROLFLAG" />
+		<result property="Desp1" column="DESP1" />
+		<result property="Desp2" column="DESP2" />
+		<result property="Desp3" column="DESP3" />
+		<result property="ORDERSORT" column="ORDERSORT" />
+		<result property="SevenDayAnnual" column="SEVENDAYANNUAL" />
+		<result property="TensOfThousandsOfIncome" column="TENSOFTHOUSANDSOFINCOME" />
+	</resultMap>
+	
+	<select id="queryFundProductUpPercent" parameterClass="java.util.HashMap" resultMap="queryFundProductUpPercentResult">
+	   SELECT a.id, a.PRDNAV, a.NAVDATE, decode(nvl(a.PRDNAV, 0), 0, 0.00, round((nvl(m.Nav,a.PRDNAV)-a.PRDNAV) / a.PRDNAV*100, 2)) as UpPercent,
+	   m.PRDCODE,m.TACODE, m.PRDTYPE, m.PRDNAME, m.NAV, m.PFIRSTAMT, m.PRDATTR, m.RISKLEVEL, m.RISKNAME, m.STATUS,m.CONTROLFLAG, n.DESP1, n.DESP2,
+	   n.DESP3, n.ORDERSORT, b.SEVENDAYANNUAL, b.TENSOFTHOUSANDSOFINCOME
+	   from  EIP.MCFUNDPRPRODUCT m
+	   left join ( SELECT SEVENDAYANNUAL, TENSOFTHOUSANDSOFINCOME,  PRDCODE, PRDNAV, NAVDATE, row_number() over(partition by E.PRDCODE ORDER by E.NAVDATE asc) id FROM EIP.MCFUNDNAV E where  exists (
+	    SELECT 1 FROM EIP.MCFUNDPRPRODUCT T WHERE  T.PRDTYPE='0' and T.STATUS in ('0','1','2','7','8')
+          <isNotEmpty prepend=" AND " property="channels"> INSTR(T.CHANNELS, #channels#) > 0</isNotEmpty>   
+          <isNotEmpty prepend=" AND " property="PrdCode"> (T.PRDCODE LIKE '%'||#PrdCode#||'%' OR T.PRDNAME LIKE '%'||#PrdCode#||'%')</isNotEmpty> 
+          <isNotEmpty prepend=" AND " property="TaCode"> T.TACODE = #TaCode#</isNotEmpty> 
+          <isNotEmpty prepend=" AND " property="TaName"> T.TANAME = #TaName#</isNotEmpty> 
+          <isNotEmpty prepend=" AND " property="PrdAttr"> T.PRDATTR = #PrdAttr#</isNotEmpty> 
+          and E.PRDCODE= T.PRDCODE ) 
+          and E.NAVDATE >=  to_char(add_months(sysdate, #month#), 'yyyyMMdd')
+	   )  a on a.PRDCODE= m.PRDCODE and a.id = 1 
+	   left join ( SELECT PRDCODE, SEVENDAYANNUAL, TENSOFTHOUSANDSOFINCOME, row_number() over(partition by F.PRDCODE ORDER by F.NAVDATE desc) id FROM EIP.MCFUNDNAV F where  exists (
+      	SELECT 1 FROM EIP.MCFUNDPRPRODUCT P WHERE  P.PRDTYPE='0' or P.PRDTYPE='B' and P.STATUS in ('0','1','2','7','8') and P.PRDATTR = '4'
+          and F.PRDCODE= P.PRDCODE ) 
+          and F.NAVDATE >=  to_char(add_months(sysdate, #month#), 'yyyyMMdd')
+          and F.SEVENDAYANNUAL != 0  
+       	) b on b.PRDCODE= m.PRDCODE and b.id = 1
+	   left join eip.PHONE_N_PRODUCTDATA n on m.PRDCODE= n.PRDCODE
+	   WHERE m.PRDTYPE='0' or m.PRDTYPE='B' and m.STATUS in ('0','1','2','7','8') and m.PRDTEMPLATE!='0103'
+          <isNotEmpty prepend=" AND " property="channels"> INSTR(m.CHANNELS, #channels#) > 0</isNotEmpty>   
+          <isNotEmpty prepend=" AND " property="PrdCode"> (m.PRDCODE LIKE '%'||#PrdCode#||'%' OR m.PRDNAME LIKE '%'||#PrdCode#||'%')</isNotEmpty> 
+          <isNotEmpty prepend=" AND " property="TaCode"> m.TACODE = #TaCode#</isNotEmpty> 
+          <isNotEmpty prepend=" AND " property="TaName"> m.TANAME = #TaName#</isNotEmpty> 
+          <isNotEmpty prepend=" AND " property="PrdAttr"> m.PRDATTR = #PrdAttr#</isNotEmpty>
+           order by n.ORDERSORT, m.nav desc
+	</select>
+    
+    <resultMap class="java.util.HashMap" id="queryFundProductTrendResult">
+		<result property="PrdNav" column="PRDNAV" />
+		<result property="NavDate" column="NAVDATE" />
+		<result property="PrdCode" column="PRDCODE" />
+	</resultMap>
+	
+	<select id="queryFundProductTrend" parameterClass="java.util.HashMap" resultMap="queryFundProductTrendResult">
+	   SELECT  E.PRDNAV, E.NAVDATE, E.PRDCODE
+	   from  EIP.MCFUNDNAV E where exists (
+	   SELECT 1 FROM EIP.MCFUNDPRPRODUCT T WHERE  T.PRDTYPE='0' or T.PRDTYPE='B' and T.STATUS in ('0','1','2','7','8')
+          <isNotEmpty prepend=" AND " property="channels"> INSTR(T.CHANNELS, #channels#) > 0</isNotEmpty>   
+          <isNotEmpty prepend=" AND " property="PrdCode"> (T.PRDCODE LIKE '%'||#PrdCode#||'%' OR T.PRDNAME LIKE '%'||#PrdCode#||'%')</isNotEmpty> 
+          <isNotEmpty prepend=" AND " property="TaCode"> T.TACODE = #TaCode#</isNotEmpty> 
+          <isNotEmpty prepend=" AND " property="TaName"> T.TANAME = #TaName#</isNotEmpty> 
+          <isNotEmpty prepend=" AND " property="PrdAttr"> T.PRDATTR = #PrdAttr#</isNotEmpty> 
+          and E.PRDCODE= T.PRDCODE  )
+        and E.NAVDATE  >=  to_char(sysdate-2, 'yyyyMMdd')
+        order by prdcode, navdate desc
+	</select>
+	
+	<!-- 热门基金获取后管配置产品 BEGIN  -->
+	<resultMap class="java.util.HashMap" id="qryHotFundDefaultShowPrdResult">
+		<result property="PrdCode" column="PRDCODE" />
+		<result property="PrdName" column="PRDNAME" />
+		<result property="NAV" column="NAV" />
+		<result property="PrdAttr" column="PRDATTR" />
+		<result property="RiskName" column="RISKNAME" />
+		<result property="PfirstAmt" column="PFIRSTAMT" />
+		<result property="Status" column="STATUS" />
+		<result property="desp1" column="DESP1" />
+		<result property="desp2" column="DESP2" />
+		<result property="desp3" column="DESP3" />
+		<result property="defaultshow" column="DEFAULTSHOW" />
+		<result property="hotshow" column="HOTSHOW" />
+		<result property="SevenDayAnnual" column="SEVENDAYANNUAL" />
+		<result property="TensOfThousandsOfIncome" column="TENSOFTHOUSANDSOFINCOME" />
+	</resultMap>
+	
+	<select id="qryHotFundDefaultShowPrd" resultMap="qryHotFundDefaultShowPrdResult" parameterClass="java.util.HashMap">
+		  select m.PRDCODE PrdCode, m.PRDNAME PrdName, m.NAV NAV, 
+		 	m.PRDATTR PrdAttr, m.RISKNAME RiskName, m.PFIRSTAMT PfirstAmt,
+		 	m.STATUS Status, p.DESP1 desp1, p.DESP2 desp2, p.DESP3 desp3,p.DEFAULTSHOW defaultshow, p.HOTSHOW hotshow,
+		 	m.SEVENDAYANNUAL SevenDayAnnual,m.TENSOFTHOUSANDSOFINCOME TensOfThousandsOfIncome
+		 	 from eip.mcfundprproduct m
+			 inner join eip.phone_n_productdata p
+			 on m.prdcode=p.prdcode
+			 where p.ptype=0
+			  and INSTR(m.CHANNELS, 7) > 0
+			  and m.STATUS in ('0', '1', '2', '7', '8')
+			  and ( p.defaultshow = 0 or p.hotshow = 0 )
+			 order by p.ordersort
+	</select>
+	<!-- 热门基金获取后管配置产品  END -->
+</sqlMap>
